@@ -10,6 +10,8 @@ import (
 	"appstore/constants"
 	"appstore/model"
 
+	"mime/multipart"
+
 	"github.com/olivere/elastic/v7"
 	"github.com/stripe/stripe-go/v74"
 )
@@ -93,7 +95,7 @@ func getAppFromSearchResult(searchResult *elastic.SearchResult) []model.App {
     return apps
 }
 
-func SaveApp(app *model.App) error {
+func SaveApp(app *model.App, file multipart.File ) error {
     // call Stripe to get PriceID and ProductID
     productID, priceID, err := backend.CreateProductWithPrice(app.Title, app.Description, int64(app.Price*100))
     if err != nil {
@@ -105,6 +107,12 @@ func SaveApp(app *model.App) error {
     app.PriceID = priceID
     
     // call GCS to store file and get URL
+    medialink, err := backend.GCSBackend.SaveToGCS(file, app.Id)
+    if err != nil {
+        return err
+    }
+    app.Url = medialink
+
 
     // save everything to ES
     err = backend.ESBackend.SaveToES(app, constants.APP_INDEX, app.Id)
